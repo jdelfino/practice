@@ -74,8 +74,8 @@ def pointer(board, cell):
     return rval
 
 def bootstrap_possibles(board, cell):
-    if board[cell.row][cell.col].num:
-        return set([board[cell.row][cell.col].num])
+    if cell.num:
+        return set([cell.num])
     row_poss = set(x.num for x in board.row(cell.row))
     col_poss = set(x.num for x in board.col(cell.col))
     box_poss = set(x.num for x in board.box(cell.box))
@@ -139,10 +139,6 @@ class Board:
     def clear_possibles(self, cell):
         self._do_for_all_units(lambda x: x.possibles.discard(cell.num), cell)
     
-    def __getitem__(self, index):
-        # ahh performance
-        return sorted(self.row(index), key=lambda x:x.col)
-
 def print_board(board):
     for c in board.cells():
         if c.col == 0 and c.row % 3 == 0:
