@@ -3,16 +3,16 @@ def solve(board):
     while(made_progress):
         made_progress = False
         for cell in board.cells():
-            for strat in [identity, exclusion, pointer, exclusive_tuples]:
+            for strat in [only_choice, single_possibility, pointer, exclusive_tuples]:
                 if strat(board, cell):
                     made_progress = True
         
-def identity(board, cell):
+def only_choice(board, cell):
     if len(cell.possibles) == 1:
         board.setnum(next(iter(cell.possibles)), cell)
         return True
     
-def exclusion(board, cell):
+def single_possibility(board, cell):
     for p in cell.possibles:
         for unit in [board.row(cell.row), board.col(cell.col), board.box(cell.box)]:
             if not any((x != cell and p in x.possibles) for x in unit):
@@ -21,30 +21,15 @@ def exclusion(board, cell):
 
 def exclusive_tuples(board, cell):
     rval = False
-    
-    identical_row = [x for x in board.row(cell.row) if x.possibles == cell.possibles]
-    if len(identical_row) == len(cell.possibles):
-        #exclusive, remove these from the rest of the row
-        for r in board.row(cell.row):
-            if r not in identical_row:
-                r.possibles -= cell.possibles
-                rval = True
-                
-    identical_col = [x for x in board.col(cell.col) if x.possibles == cell.possibles]
-    if len(identical_col) == len(cell.possibles):
-        #exclusive, remove these from the rest of the col
-        for r in board.col(cell.col):
-            if r not in identical_col:
-                r.possibles -= cell.possibles
-                rval = True
-                
-    identical_box = [x for x in board.box(cell.box) if x.possibles == cell.possibles]
-    if len(identical_box) == len(cell.possibles):
-        #exclusive, remove these from the rest of the box
-        for r in board.box(cell.box):
-            if r not in identical_box:
-                r.possibles -= cell.possibles
-                rval = True
+
+    for collection in [board.row(cell.row), board.col(cell.col), board.box(cell.box)]:
+        identical = [x for x in collection if x.possibles == cell.possibles]
+        if len(identical) == len(cell.possibles):
+            #exclusive, remove these from the rest of the row
+            for other_cell in collection:
+                if other_cell not in identical_row:
+                    other_cell.possibles -= cell.possibles
+                    rval = True
 
     return rval
 
@@ -53,23 +38,21 @@ def pointer(board, cell):
     box = list(board.box(cell.box))
 
     for candidate in cell.possibles:
-        cando = [x for x in box if candidate in x.possibles]
+        have_candidate = [x for x in box if candidate in x.possibles]
 
-        if len(set(x.row for x in cando)) == 1:
-            row_to_clear = cando[0].row
-            rest = [x for x in board.row(row_to_clear) if candidate in x.possibles]
+        if len(set(x.row for x in have_candidate)) == 1:
+            # all of these possibles are in the same row, which means that
+            # this number will not appear outside of this box in this row
+            rest = [x for x in board.row(cell.row) if candidate in x.possibles and x.box != cell.box]
             for r in rest:
-                if r.row == row_to_clear and r.box != cell.box:
-                    r.possibles.discard(candidate)
-                    rval = True
+                r.possibles.discard(candidate)
+                rval = True
 
-        if len(set(x.col for x in cando)) == 1:
-            col_to_clear = cando[0].col
-            rest = [x for x in board.col(col_to_clear) if candidate in x.possibles]
+        if len(set(x.col for x in have_candidate)) == 1:
+            rest = [x for x in board.col(cell.col) if candidate in x.possibles and x.box != cell.box]
             for r in rest:
-                if r.col == col_to_clear and r.box != cell.box:
-                    r.possibles.discard(candidate)
-                    rval = True
+                r.possibles.discard(candidate)
+                rval = True
 
     return rval
 
@@ -184,9 +167,9 @@ def medium_board():
             [None, 1, None, None, 6, 2, 5, None, None]]
             
 def main():
-    #b = Board(hard_board())
+    b = Board(hard_board())
     #b = Board(easy_board())
-    b = Board(medium_board())
+    #b = Board(medium_board())
     print_board(b)
     solve(b)
     print_board(b)
