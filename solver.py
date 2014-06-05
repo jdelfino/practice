@@ -14,7 +14,7 @@ def identity(board, cell):
     
 def exclusion(board, cell):
     for p in cell.possibles:
-        for unit in [board.row(cell.row), board.col(cell.col), board.box(cell.row, cell.col)]:
+        for unit in [board.row(cell.row), board.col(cell.col), board.box(cell.box)]:
             if not any((x != cell and p in x.possibles) for x in unit):
                 board.setnum(p, cell)
                 return True
@@ -38,19 +38,19 @@ def exclusive_tuples(board, cell):
                 r.possibles -= cell.possibles
                 rval = True
                 
-    identical_box = [x for x in board.box(cell.row, cell.col) if x.possibles == cell.possibles]
+    identical_box = [x for x in board.box(cell.box) if x.possibles == cell.possibles]
     if len(identical_box) == len(cell.possibles):
         #exclusive, remove these from the rest of the box
         for r in board.box(cell.box):
             if r not in identical_box:
-                r.possibles -= cell.possibles    
+                r.possibles -= cell.possibles
                 rval = True
 
     return rval
 
 def pointer(board, cell):
     rval = False
-    box = list(board.box(cell.row, cell.col))
+    box = list(board.box(cell.box))
 
     for candidate in cell.possibles:
         cando = [x for x in box if candidate in x.possibles]
@@ -73,22 +73,19 @@ def pointer(board, cell):
 
     return rval
 
-def bootstrap_possibles(board, row, col):
-    if board[row][col].num:
-        return set([board[row][col].num])
-    row_poss = set(x.num for x in board.row(row))
-    col_poss = set(x.num for x in board.col(col))
-    box_poss = set(x.num for x in board.box(row, col))
+def bootstrap_possibles(board, cell):
+    if board[cell.row][cell.col].num:
+        return set([board[cell.row][cell.col].num])
+    row_poss = set(x.num for x in board.row(cell.row))
+    col_poss = set(x.num for x in board.col(cell.col))
+    box_poss = set(x.num for x in board.box(cell.box))
     return set(range(1,10)) - row_poss - col_poss - box_poss        
-
-def boxnum(rownum, colnum):
-    return (rownum / 3) * 3 + (colnum / 3)
 
 class Cell:
     def __init__(self, row_, col_, num=None, possibles=None):
         self.row = row_
         self.col = col_
-        self.box = boxnum(row_, col_)
+        self.box = (row_ / 3) * 3 + (col_ / 3)
         self.num = num
         self.possibles = set(possibles) if possibles else set(range(1,10))
 
@@ -104,7 +101,7 @@ class Board:
 
         for row in self.rows():
             for cell in row:
-                cell.possibles = bootstrap_possibles(self, cell.row, cell.col)
+                cell.possibles = bootstrap_possibles(self, cell)
 
     def setnum(self, num, cell):
         cell.num = num
@@ -128,19 +125,19 @@ class Board:
     def col(self, num):
         return (x for x in self._board if x.col == num)
     
-    def box(self, rownum, colnum):
-        return (x for x in self._board if x.box == boxnum(rownum, colnum))
+    def box(self, boxnum):
+        return (x for x in self._board if x.box == boxnum)
     
-    def _do_for_all_units(self, fun, rownum, colnum):
-        for r in self.row(rownum):
+    def _do_for_all_units(self, fun, cell):
+        for r in self.row(cell.row):
             fun(r)
-        for c in self.col(colnum):
+        for c in self.col(cell.col):
             fun(c)
-        for b in self.box(rownum, colnum):
+        for b in self.box(cell.box):
             fun(b)
 
     def clear_possibles(self, cell):
-        self._do_for_all_units(lambda x: x.possibles.discard(cell.num), cell.row, cell.col)
+        self._do_for_all_units(lambda x: x.possibles.discard(cell.num), cell)
     
     def __getitem__(self, index):
         # ahh performance
@@ -178,10 +175,22 @@ def hard_board():
             [None, 8, None, None, None, None, None, None, None],
             [1, None, None, None, None, None, 8, None, 6],
             [None, None, 9, None, 1, None, 5, 7, None]]
+
+def medium_board():
+    return [[None, None, 6, 2, 4, None, None, 3, None],
+            [None, 3, None, None, None, None, None, 9, None],
+            [2, None, None, None, None, None, None, 7, None],
+            [5, None, None, 8, None, None, None, 2, None],
+            [None, None, 1, None, None, None, 6, None, None],
+            [None, 2, None, None, None, 3, None, None, 7],
+            [None, 5, None, None, None, None, None, None, 3],
+            [None, 9, None, None, None, None, None, 8, None],
+            [None, 1, None, None, 6, 2, 5, None, None]]
             
 def main():
-    b = Board(hard_board())
+    #b = Board(hard_board())
     #b = Board(easy_board())
+    b = Board(medium_board())
     print_board(b)
     solve(b)
     print_board(b)
