@@ -3,25 +3,75 @@ def solve(board):
     while(made_progress):
         made_progress = False
         for cell in board.cells():
-            print cell
-            if len(cell.possibles) == 1:
-                board.setnum(next(iter(cell.possibles)), cell)
-                made_progress = True
-            else:
-                for p in cell.possibles:
-                    if _check(board, cell, p):
-                        made_progress = True
-                        break
-
-def _check(board, cell, poss):
-    for unit in [board.row(cell.row), board.col(cell.col), board.box(cell.row, cell.col)]:
-        if not any((x != cell and poss in x.possibles) for x in unit):
-            board.setnum(poss, cell)
-            return True
+            for strat in [identity, exclusion, pointer, exclusive_tuples]:
+                if strat(board, cell):
+                    made_progress = True
         
-def identity(self, board, cell):
+def identity(board, cell):
     if len(cell.possibles) == 1:
-        return cell.num
+        board.setnum(next(iter(cell.possibles)), cell)
+        return True
+    
+def exclusion(board, cell):
+    for p in cell.possibles:
+        for unit in [board.row(cell.row), board.col(cell.col), board.box(cell.row, cell.col)]:
+            if not any((x != cell and p in x.possibles) for x in unit):
+                board.setnum(p, cell)
+                return True
+
+def exclusive_tuples(board, cell):
+    rval = False
+    
+    identical_row = [x for x in board.row(cell.row) if x.possibles == cell.possibles]
+    if len(identical_row) == len(cell.possibles):
+        #exclusive, remove these from the rest of the row
+        for r in board.row(cell.row):
+            if r not in identical_row:
+                r.possibles -= cell.possibles
+                rval = True
+                
+    identical_col = [x for x in board.col(cell.col) if x.possibles == cell.possibles]
+    if len(identical_col) == len(cell.possibles):
+        #exclusive, remove these from the rest of the col
+        for r in board.col(cell.col):
+            if r not in identical_col:
+                r.possibles -= cell.possibles
+                rval = True
+                
+    identical_box = [x for x in board.box(cell.row, cell.col) if x.possibles == cell.possibles]
+    if len(identical_box) == len(cell.possibles):
+        #exclusive, remove these from the rest of the box
+        for r in board.box(cell.box):
+            if r not in identical_box:
+                r.possibles -= cell.possibles    
+                rval = True
+
+    return rval
+
+def pointer(board, cell):
+    rval = False
+    box = list(board.box(cell.row, cell.col))
+
+    for candidate in cell.possibles:
+        cando = [x for x in box if candidate in x.possibles]
+
+        if len(set(x.row for x in cando)) == 1:
+            row_to_clear = cando[0].row
+            rest = [x for x in board.row(row_to_clear) if candidate in x.possibles]
+            for r in rest:
+                if r.row == row_to_clear and r.box != cell.box:
+                    r.possibles.discard(candidate)
+                    rval = True
+
+        if len(set(x.col for x in cando)) == 1:
+            col_to_clear = cando[0].col
+            rest = [x for x in board.col(col_to_clear) if candidate in x.possibles]
+            for r in rest:
+                if r.col == col_to_clear and r.box != cell.box:
+                    r.possibles.discard(candidate)
+                    rval = True
+
+    return rval
 
 def bootstrap_possibles(board, row, col):
     if board[row][col].num:
@@ -43,7 +93,7 @@ class Cell:
         self.possibles = set(possibles) if possibles else set(range(1,10))
 
     def __str__(self):
-        return "(" + str(self.row) + "," + str(self.col) + ") " + str(self.num) + " [" + str(list(self.possibles)) + "]"
+        return "(" + str(self.row) + "," + str(self.col) + "," + str(self.box) + ") " + str(self.num) + " [" + str(list(self.possibles)) + "]"
     
 class Board:
     def __init__(self, board=None):
@@ -57,8 +107,8 @@ class Board:
                 cell.possibles = bootstrap_possibles(self, cell.row, cell.col)
 
     def setnum(self, num, cell):
-        print "SETNUM", cell
         cell.num = num
+        cell.possibles = set()
         self.clear_possibles(cell)
 
     def cells(self):
@@ -131,6 +181,7 @@ def hard_board():
             
 def main():
     b = Board(hard_board())
+    #b = Board(easy_board())
     print_board(b)
     solve(b)
     print_board(b)
