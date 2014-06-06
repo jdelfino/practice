@@ -1,12 +1,18 @@
-def solve(board):
-    made_progress = True
-    while(made_progress):
-        made_progress = False
-        for cell in board.cells():
-            for strat in [only_choice, single_possibility, pointer, exclusive_tuples]:
-                if strat(board, cell):
-                    made_progress = True
-        
+import copy
+import time
+import argparse
+
+class Unsolvable(Exception):
+    def __str__(self):
+        return "UnsolvableException"
+    
+class Mistake(Exception):
+    def __init__(self, unit):
+        super(Mistake, self).__init__()
+        self.unit = unit
+    def __str__(self):
+        return "MistakeException\n" + '\n'.join([str(x) for x in self.unit])
+    
 def only_choice(board, cell):
     if len(cell.possibles) == 1:
         board.setnum(next(iter(cell.possibles)), cell)
@@ -56,14 +62,6 @@ def pointer(board, cell):
 
     return rval
 
-def bootstrap_possibles(board, cell):
-    if cell.num:
-        return set([cell.num])
-    row_poss = set(x.num for x in board.row(cell.row))
-    col_poss = set(x.num for x in board.col(cell.col))
-    box_poss = set(x.num for x in board.box(cell.box))
-    return set(range(1,10)) - row_poss - col_poss - box_poss        
-
 class Cell:
     def __init__(self, row_, col_, num=None, possibles=None):
         self.row = row_
@@ -80,16 +78,22 @@ class Board:
         if not board:
             self._board = set(Cell(j, i) for i in range(9) for j in range(9))
         else:
-            self._board = set(Cell(j, i, board[j][i]) for i in range(9) for j in range(9))
+            self._board = set(Cell(num / 9, num % 9, int(val) if val != '.' else None) for num, val in enumerate(board))
 
         for row in self.rows():
             for cell in row:
-                cell.possibles = bootstrap_possibles(self, cell)
+                if cell.num:
+                    continue
+                row_poss = set(x.num for x in self.row(cell.row))
+                col_poss = set(x.num for x in self.col(cell.col))
+                box_poss = set(x.num for x in self.box(cell.box))
+                cell.possibles = set(range(1,10)) - row_poss - col_poss - box_poss
 
     def setnum(self, num, cell):
-        cell.num = num
-        cell.possibles = set()
-        self.clear_possibles(cell)
+        mycell = self.cell(cell.row, cell.col)
+        mycell.num = num
+        mycell.possibles = set()
+        self.clear_possibles(mycell)
 
     def cells(self):
         for r in self.rows():
@@ -97,7 +101,7 @@ class Board:
                 yield c
 
     def cell(self, rownum, colnum):
-        return self._board[rownum][colnum]
+        return [x for x in self._board if x.row == rownum and x.col == colnum][0]
 
     def row(self, num):
         return (x for x in self._board if x.row == num)
@@ -107,9 +111,15 @@ class Board:
     
     def col(self, num):
         return (x for x in self._board if x.col == num)
+
+    def cols(self):
+        return (self.col(x) for x in range(9))
     
     def box(self, boxnum):
         return (x for x in self._board if x.box == boxnum)
+
+    def boxes(self):
+        return (self.box(x) for x in range(9))
     
     def _do_for_all_units(self, fun, cell):
         for r in self.row(cell.row):
@@ -121,59 +131,118 @@ class Board:
 
     def clear_possibles(self, cell):
         self._do_for_all_units(lambda x: x.possibles.discard(cell.num), cell)
+
+    def solvable(self):
+        return all(x.possibles or x.num for x in self.cells())
     
-def print_board(board):
-    for c in board.cells():
-        if c.col == 0 and c.row % 3 == 0:
-            print '-' * 25
-        if c.col % 3 == 0:
-            print("|"),
-        print(c.num or '_'),
-        if c.col == 8:
-            print "|"
-    print '-' * 25
+    def solved(self):
+        try:
+            self.check()
+        except Mistake:
+            return False
+        return all(x.num for x in self.cells())
+        
+    def check(self):
+        for unit_collection in [self.rows(), self.cols(), self.boxes()]:
+            for unit in unit_collection:
+                unit = [x for x in unit if x]
+                if sorted(list(set(unit))) != sorted(unit):
+                    raise Mistake(unit)
+        return True
 
-def easy_board():
-    return [[6,    None, None, 1,    None, 8,    2,    None, 3   ],
-            [None, 2,    None, None, 4,    None, None, 9,    None],
-            [8,    None, 3,    None, None, 5,    4,    None, None],
-            [5,    None, 4,    6,    None, 7,    None, None, 9   ],
-            [None, 3,    None, None, None, None, None, 5,    None],
-            [7,    None, None, 8,    None, 3,    1,    None, 2   ],
-            [None, None, 1,    7,    None, None, 9,    None, 6   ],
-            [None, 8,    None, None, 3,    None, None, 2,    None],
-            [3,    None, 2,    9,    None, 4,    None, None, 5   ]]
+    def __str__(self):
+        rval = ""
+        for c in self.cells():
+            if c.col == 0 and c.row % 3 == 0:
+                rval += '-' * 13 + '\n'
+            if c.col % 3 == 0:
+                rval += "|"
+            rval += (str(c.num) if c.num else '.')
+            if c.col == 8:
+                rval += "|" + "\n"
+        rval += '-' * 13
+        return rval
 
-def hard_board():
-    return [[None, 6, 5, None, 3, None, 2, None, None],
-            [2, None, 4, None, None, None, None, None, 3],
-            [None, None, None, None, None, None, None, 1, None],
-            [None, None, 1, 7, 5, None, None, None, None],
-            [8, None, None, None, None, None, None, None, 1],
-            [None, None, None, None, 4, 9, 7, None, None],
-            [None, 8, None, None, None, None, None, None, None],
-            [1, None, None, None, None, None, 8, None, 6],
-            [None, None, 9, None, 1, None, 5, 7, None]]
+def solve(board):
+    do_it_the_smart_way(board)
+    
+    while not board.solved():
+        board = guess(board)
 
-def medium_board():
-    return [[None, None, 6, 2, 4, None, None, 3, None],
-            [None, 3, None, None, None, None, None, 9, None],
-            [2, None, None, None, None, None, None, 7, None],
-            [5, None, None, 8, None, None, None, 2, None],
-            [None, None, 1, None, None, None, 6, None, None],
-            [None, 2, None, None, None, 3, None, None, 7],
-            [None, 5, None, None, None, None, None, None, 3],
-            [None, 9, None, None, None, None, None, 8, None],
-            [None, 1, None, None, 6, 2, 5, None, None]]
-            
+    board.check()
+    return board
+    
+def guess(board):
+    print "I have to guess..."
+    #print board
+    original_board = copy.deepcopy(board)
+
+    to_guess = None
+    for cell in sorted(original_board.cells(), key=lambda x:len(x.possibles)):
+        if len(cell.possibles) >= 2:
+            to_guess = cell
+            break
+    
+    for option in list(to_guess.possibles):
+        #print "Trying %s in %s" % (option, to_guess)
+        board.setnum(option, to_guess)
+        try:
+            board = solve(board)
+        except (Unsolvable, Mistake), e:
+            original_board.cell(to_guess.row, to_guess.col).possibles.discard(option)
+            board = copy.deepcopy(original_board)
+        else:
+            return board
+
+    raise Unsolvable
+        
+def do_it_the_smart_way(board):
+    made_progress = True
+    while(made_progress):
+        made_progress = False
+
+        if not board.solvable():
+            raise Unsolvable
+        
+        for cell in board.cells():
+            for strat in [only_choice, single_possibility, pointer, exclusive_tuples]:
+                if strat(board, cell):
+                    made_progress = True
+
+def noisy_solve(board):
+    print "SOLVING"
+    print board
+    tick = time.time()
+    try:
+        board = solve(board)
+    except Mistake, e:
+        print "Found a mistake! This is probably a bug..."
+        print e
+    except Unsolvable:
+        print "Looks like this puzzle is unsolvable, sorry!"
+    else:
+        print "SOLVED in %.2f seconds" % (time.time() - tick)
+    print board
+    
 def main():
-    b = Board(hard_board())
-    #b = Board(easy_board())
-    #b = Board(medium_board())
-    print_board(b)
-    solve(b)
-    print_board(b)
-    
+    parser = argparse.ArgumentParser(description='Solve a sudoku puzzle')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-f', '--filename', metavar='Filename', help="Name of file containing puzzles to solve")
+    group.add_argument('-p', '--puzzle', metavar='Inline puzzle', help="Specify a puzzle on the command line as a single string with no line breaks, using '.' for empty squares")
+    args = parser.parse_args()
+
+    if args.filename:
+        total_tick = time.time()
+        count = 0
+        for line in open(args.filename):
+            print line
+            noisy_solve(Board(line.strip()))
+            count += 1
+        print "SOLVED %s puzzles in %.2f seconds" % (count, time.time() - total_tick)
+
+    if args.puzzle:
+        noisy_solve(Board(args.puzzle))
+        
 if __name__ == '__main__':
     main()
     
