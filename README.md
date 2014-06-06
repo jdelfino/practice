@@ -7,3 +7,5 @@ It uses some simple strategies:
 - "exclusive tuples" (http://www.thonky.com/sudoku/naked-pairs-triples-quads/)
 
 When those strategies are exhausted, it resorts to taking a guess, then making as much progress without guessing again as possible.
+
+If you want a much more elegant, faster version of this, check out http://norvig.com/sudoku.html.
