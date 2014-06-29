@@ -65,8 +65,6 @@ inline string iterative_find(int n, int c){
 }
 
 void generate(int n, ValType& vals, Cache *cache = nullptr){
-	//cerr << "generate " << n << " " << vals.size() << endl;
-	
 	if(cache) {
 		auto cached = cache->find(n);
 		if(cached != cache->end()){ 
@@ -87,8 +85,9 @@ void generate(int n, ValType& vals, Cache *cache = nullptr){
 		int tn = pow(2,n)-1;
 		int tnmo = pow(2,n-1);
 		for(int i = 0; i < tnmo; ++i){
-			vals[i] = "0" + vals[i];
+			//cerr << "tn " << tn - i << " " << vals[tn-i] << " i " << i << " " << vals[i] << endl;
 			vals[tn - i] = "1" + vals[i];
+			vals[i] = "0" + vals[i];
 		}
 	}
 
