@@ -82,8 +82,8 @@ void generate(int n, ValType& vals, Cache *cache = nullptr){
 	} else {
 
 		generate(n-1, vals, cache);
-		int tn = pow(2,n)-1;
-		int tnmo = pow(2,n-1);
+		int tn = powers[n]-1;
+		int tnmo = powers[n-1];
 		for(int i = 0; i < tnmo; ++i){
 			//cerr << "tn " << tn - i << " " << vals[tn-i] << " i " << i << " " << vals[i] << endl;
 			vals[tn - i] = "1" + vals[i];
