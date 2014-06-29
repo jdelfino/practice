@@ -8,68 +8,108 @@
 #include <cassert>
 #include <unordered_map>
 #include <set>
+#include <sstream>
 
 using namespace std;
 using namespace std::placeholders;
 
-typedef unordered_map<int, vector<string>> Cache;
+typedef vector<string> ValType;
+typedef unordered_map<int, ValType> Cache;
 typedef function<string(int, int)> ComputeFunc;
 
-string iterative_find(int n, int c){
-	string rval;
+const int powers[]{
+	int(pow(2,0)),
+	int(pow(2,1)),
+	int(pow(2,2)),
+	int(pow(2,3)),
+	int(pow(2,4)),
+	int(pow(2,5)),
+	int(pow(2,6)),
+	int(pow(2,7)),
+	int(pow(2,8)),
+	int(pow(2,9)),
+	int(pow(2,10)),
+	int(pow(2,11)),
+	int(pow(2,12)),
+	int(pow(2,13)),
+	int(pow(2,14)),
+	int(pow(2,15)),
+	int(pow(2,16)),
+	int(pow(2,17)),
+	int(pow(2,18)),
+	int(pow(2,19)),
+	int(pow(2,20)),
+	int(pow(2,21)),
+	int(pow(2,22)),
+	int(pow(2,23)),
+	int(pow(2,24)),
+	int(pow(2,25)),
+	int(pow(2,26))
+};
 
-	int orig_c = c;
+inline string iterative_find(int n, int c){
+	int orig_n = n;
+	string rval(n, '0');
+
 	while(n > 1){
-		if(c >= pow(2, n-1)){
-			rval += "1";
-			c = pow(2,n) - 1 - c;
-		} else {
-			rval += "0";
-		}
-		n = n - 1;
+		//cerr << "n " << n << " c "  << c << endl;
+		if(c >= powers[n-1]) {
+			rval[orig_n - n] = '1';
+			//cerr << "flipping the bit " << rval << endl;
+			c = powers[n] - 1 - c;
+		} 
+		--n;
 	}
-	return rval + to_string(c);
+	rval[orig_n-1] = c ? '1' : '0';
+	return rval;
 }
 
-vector<string> generate(int n, Cache *cache = nullptr){
+void generate(int n, ValType& vals, Cache *cache = nullptr){
+	//cerr << "generate " << n << " " << vals.size() << endl;
+	
 	if(cache) {
 		auto cached = cache->find(n);
 		if(cached != cache->end()){ 
-			return cached->second;
+			return;
 		}
 	}
-
+	
 	if(n < 1) {
 		throw exception();
 	}
 
 	if(n == 1){
-		return vector<string>{"0","1"};
-	}
+		vals[0] = "0";
+		vals[1] = "1";
+	} else {
 
-	auto recurse = generate(n-1, cache);
-	auto rval = recurse;
-	std::reverse(recurse.begin(), recurse.end());
-	rval.insert(rval.end(), recurse.begin(), recurse.end());
-
-	for(int i = 0; i < (rval.size() / 2); ++i){
-		rval[i] = '0' + rval[i];
-	}
-
-	for(int i = rval.size() - 1; i >= rval.size() / 2; --i){
-		rval[i] = '1' + rval[i];
+		generate(n-1, vals, cache);
+		int tn = pow(2,n)-1;
+		int tnmo = pow(2,n-1);
+		for(int i = 0; i < tnmo; ++i){
+			vals[i] = "0" + vals[i];
+			vals[tn - i] = "1" + vals[i];
+		}
 	}
 
 	if(cache){
-		(*cache)[n] = rval;
+  		(*cache)[n] = vals;
 	}
-
-	return rval;
 }
 
 string brute_generate(int n, int c, Cache *cache = nullptr){
-	auto full = generate(n, cache);
-	return full[c];
+	// check first to avoid an allocation
+	if(cache) {
+		auto cached = cache->find(n);
+		if(cached != cache->end()){ 
+			//cerr << "using cache " << n << endl;
+			return cached->second[c];
+		}
+	}
+
+	ValType vals(pow(2,n));
+	generate(n, vals, cache);
+	return cache->find(n)->second[c];
 }
 
 string timeit(double &accum, ComputeFunc func, int n, int c) {
@@ -78,8 +118,6 @@ string timeit(double &accum, ComputeFunc func, int n, int c) {
     accum += ( std::clock() - start ) / (double) CLOCKS_PER_SEC;
     return rval;
 }
-
-string testit(int, int) { return ""; }
 
 int main(int argc, char** argv){
 	cout << "Hello World" << endl;
@@ -111,8 +149,9 @@ int main(int argc, char** argv){
 		int c = atoi(argv[2]);
 		for(const auto& item : funcs) {
 			double timer = 0.0;
-			timeit(timer, item.second, n, c);
+			auto res = timeit(timer, item.second, n, c);
 			times[item.first] = timer;
+			cout << item.first << " " << res << endl;
 		}
 	}
 
