@@ -39,7 +39,7 @@ inline void output(const std::string &val){
 }
 
 vector<Chef> *chefs;
-unordered_map<int, Chef*> *dish_to_chef;
+vector<Chef*> *dish_to_chef;
 
 float total_init = 0.0;
 float total_comp = 0.0;
@@ -68,11 +68,8 @@ void do_test(const vector<int> &scores, const vector<Test> &queries){
 
 		if(get<0>(query) == 0){
 			//clock_t lstart = clock();
-			auto dtc1 = dish_to_chef->find(get<1>(query));
-			Chef *c1 = dtc1->second;
-
-			auto dtc2 = dish_to_chef->find(get<2>(query));
-			Chef *c2 = dtc2->second;
+			Chef *c1 = (*dish_to_chef)[get<1>(query)];
+			Chef *c2 = (*dish_to_chef)[get<2>(query)];
 
 			if(c1 == c2) {
 				fwrite("Invalid query!\n", sizeof(char), 15, stdout);
@@ -81,22 +78,13 @@ void do_test(const vector<int> &scores, const vector<Test> &queries){
 
 				//cout << c1->id << " vs " << c2->id << endl;
 				if(c1->score != c2->score) {
-					Chef *winner;
-					Chef *loser;
-					if(c1->score > c2->score){
-						winner = c1;
-						loser = c2;
-						dtc2->second = c1;
-					} else {
-						winner = c2;
-						loser = c1;
-						dtc1->second = c2;
-					}
+					Chef *winner = c1->score > c2->score ? c1 : c2;
+					Chef *loser = c1->score > c2->score ? c2: c1;
+
 					//cout << "winner: " << winner->id << " loser: " << loser->id << endl;
 					//clock_t ins_start = clock();
 
 					for(int od : loser->dishes){
-						if(od == dtc1->first || od == dtc2->first) continue;
 						(*dish_to_chef)[od] = winner;
 					}
 
@@ -191,7 +179,7 @@ int main(int argc, char** argv){
 	int T = read_int();
 
 	chefs = new vector<Chef>(10000);
-	dish_to_chef = new unordered_map<int, Chef*>(10000);
+	dish_to_chef = new vector<Chef*>(10000);
 
 	for(int test = 0; test < T; ++test){
 		int N = read_int();
