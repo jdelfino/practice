@@ -18,7 +18,9 @@ struct Chef {
 
 	inline Chef(int id_, const vector<int> &dishes_, int score_) :
 	id(id_), dishes(dishes_), score(score_) 
-	{}
+	{ 
+		dishes.reserve(4);
+	}
 
 	Chef(): Chef(-1, vector<int>(), -1) {}
 };
